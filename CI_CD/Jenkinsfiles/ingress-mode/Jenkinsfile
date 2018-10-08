@@ -1,0 +1,187 @@
+node{
+        //env.NAME_SPACE = env.PROJECT_NAME
+	//env.tarfilename_project = "release_${env.PROJECT_NAME}_${env.BUILD_TAG}.tar.gz"
+	env.tarfilename_k8s = "k8s_conf_${env.PROJECT_NAME}_${env.BUILD_TAG}.tar.gz"
+        def git_ci_url = "git@gitlab.chen-123.com:noc/k8s-ci-pipeline.git"
+        def git_tag = "release_v${env.BUILD_NUMBER}"
+	def git_ci_path = "image-auto-build"
+
+	def push_register='harbor.chen-123.com'	
+	def push_username='admin'
+	def push_password='xxxxxxx'
+	def email_to = 'wp8155562@gmail.com'
+	def email_cc = ''
+	def email_from='jenkins@chen-123.com'
+	def kubectl_image_link = "docker.io/lachlanevenson/k8s-kubectl:v1.8.1"
+
+	if ( env.gitlabUserEmail && env.gitlabUserEmail != email_to ){
+		email_to = "${env.gitlabUserEmail},wp8155562@gmail.com"
+	}
+
+	if ( env.CC_EMAILS && env.CC_EMAILS != email_to ){
+                email_cc = "${env.CC_EMAILS}"
+        }
+
+	if ( env.GIT_CI_PATH && env.GIT_CI_PATH != git_ci_path ){
+                git_ci_path = "${env.GIT_CI_PATH}"
+        }
+
+	if ( env.GIT_CI_PATH == "" ){
+		env.GIT_CI_PATH = git_ci_path
+	}
+
+	currentBuild.result = "SUCCESS"
+
+	stage('初始化部署环境') {
+		echo "Container Prep Start"
+		echo "branch_name: ${env.gitlabBRANCH}"
+		rm_images_none_list()
+		rm_docker_pod_exited_list()
+
+		echo "jenkins_slave_label:${env.NODE_LABELS}"
+		//sh 'printenv'
+
+		sh "export GIT_DISCOVERY_ACROSS_FILESYSTEM=1"
+		sh "ssh -T git@gitlab.chen-123.com"
+		sh "git config --global user.name 'noc'"
+		sh "git config --global user.email 'wp8155562@gmail.com'"
+		sh "ls -al /root"
+		sh "ls -al /k8s-pv"
+		//PROJECT-NAME-NAMESPACE-db
+		//PROJECT-NAME-NAMESPACE-code
+		sh "test -d /k8s-pv/${env.PROJECT_NAME}-${env.NAME_SPACE}-db || mkdir -p /k8s-pv/${env.PROJECT_NAME}-${env.NAME_SPACE}-db || true"
+		sh "test -d /k8s-pv/${env.PROJECT_NAME}-${env.NAME_SPACE}-code || mkdir -p /k8s-pv/${env.PROJECT_NAME}-${env.NAME_SPACE}-code || true"
+		sh "ls -al /k8s-pv"
+	}
+	
+	stage('拉取生成最新配置') {
+                sh "pwd"
+		sh "ls -l"
+
+		sh "git init ."
+                sh "git config core.sparsecheckout true"
+                sh "echo '${env.GIT_CI_PATH}/*'>>.git/info/sparse-checkout"
+                sh "git remote add origin ${git_ci_url}"
+                sh "git pull origin master"
+                sh "ls -l"
+                sh "pwd"
+		
+		dir ("./${env.GIT_CI_PATH}") {
+			sh "sed -i.bak 's#PROJECT-DOMAIN#${env.DEPLOY_PROJECT_DOMAIN}#' ./k8s/yaml/*.yaml"
+                	sh "sed -i.bak 's#PROJECT-NAME#${env.PROJECT_NAME}#' ./k8s/yaml/*.yaml"
+                	sh "sed -i.bak 's#NAMESPACE#${env.NAME_SPACE}#' ./k8s/yaml/*.yaml"
+                	sh "sed -i.bak 's#REGISTER-IMAGE#${env.APP_REGISTER_IMAGE}#' ./k8s/yaml/*.yaml"
+                	sh "sed -i.bak 's#MYSQL_PASSWORD#${env.MYSQL_PASSWORD}#' ./k8s/yaml/*.yaml"
+			sh "sed -i.bak 's#MYSQL_DBNAME#${env.MYSQL_DBNAME}#' ./k8s/yaml/*.yaml"
+			sh "sed -i.bak 's#MYSQL_HOST#${env.MYSQL_HOST}#' ./k8s/yaml/*.yaml"
+			sh "sed -i.bak 's#MYSQL_PORT#${env.MYSQL_PORT}#' ./k8s/yaml/*.yaml"
+			sh "sed -i.bak 's#MYSQL_USERNAME#${env.MYSQL_USERNAME}#' ./k8s/yaml/*.yaml"
+			sh "sed -i.bak 's#PROJECT_DB_DOMAIN_NAME#${env.PROJECT_DB_DOMAIN_NAME}#' ./k8s/yaml/*.yaml"
+			//sh "sed -i.bak 's#PROJECT-NAME#${env.PROJECT_NAME}#' ./k8s/db-phpmyadmin/*.yaml"
+
+			sh "rm -rf ./k8s/yaml/*.bak"
+			sh "cat ./k8s/yaml/project-deploy.yaml"
+                	sh "cat ./k8s/yaml/project-ingress-ssl.yaml"
+                	sh "cat ./k8s/yaml/project-svc.yaml"
+                	sh "cat ./k8s/yaml/project-hpa.yaml"
+		}
+
+		// 备份相关配置
+		sh "tar zcvf ${env.tarfilename_k8s} ./${env.GIT_CI_PATH}/k8s"
+
+		sh "test -d /k8s-data/jenkins_autodeploy_code/chen-123_yaml/${env.PROJECT_NAME} || mkdir -p /k8s-data/jenkins_autodeploy_code/chen-123_yaml/${env.PROJECT_NAME} || true"
+		sh "ls -l /k8s-data/jenkins_autodeploy_code/chen-123_yaml"
+                sh "ls -l /k8s-data/jenkins_autodeploy_code/chen-123_yaml/${env.PROJECT_NAME}"
+
+		sh "cp ${env.tarfilename_k8s} /k8s-data/jenkins_autodeploy_code/chen-123_yaml/${env.PROJECT_NAME}"
+                sh "cat ./${env.GIT_CI_PATH}/k8s/yaml/project-deploy.yaml"
+                sh "cat ./${env.GIT_CI_PATH}/k8s/yaml/project-ingress-ssl.yaml"
+                sh "cat ./${env.GIT_CI_PATH}/k8s/yaml/project-svc.yaml"
+		sh "cat ./${env.GIT_CI_PATH}/k8s/yaml/project-hpa.yaml"
+	
+                sh "ls -l /k8s-data/jenkins_autodeploy_code/chen-123_yaml/${env.PROJECT_NAME}"
+	} 
+
+	stage('检查确认自动集成细节') {
+		try {
+			echo "检查确认"
+			mail to: "${email_to}", cc: "${email_cc}",
+                                subject: "任务：'${JOB_NAME}' (${BUILD_NUMBER}) ，请您尽快确认并授权发布",
+                                body: "请在一个小时内，通过链接： ${BUILD_URL} 查看并确认自动构建任务,否则影响项目发布上线！"
+                        timeout(time:1, unit:'HOURS') {
+                                input "请查看确认构建任务是否正确?"
+                        }	
+		}catch (ex){
+			mail to: "${email_to}", cc: "${email_cc}",
+                                subject: "Job '${JOB_NAME}' (${BUILD_NUMBER}) is waiting for input timeout failed",
+                                body: "项目发布上线终止，原因：未通过链接 ${BUILD_URL} 查看确认构建任务"
+			error '一个小时内未确认及授权，终止发布任务！'
+		}
+        }	
+
+	stage("部署预发布环境") {
+		sh "ls -l"
+
+		sh "cd ${env.GIT_CI_PATH}/k8s;sh mk-data-container.sh"
+		sh "sleep 10"
+		sh "docker exec data ls /data"
+		sh returnStatus: true, script: "docker run --rm --volumes-from data ${kubectl_image_link} --kubeconfig /data/admin.conf create ns ${env.NAME_SPACE}"
+		sh returnStatus: true, script: "docker run --rm --volumes-from data ${kubectl_image_link} --kubeconfig /data/admin.conf create secret docker-registry aliyun-sec -n ${env.NAME_SPACE} --docker-server=harbor.chen-123.com --docker-username=xxxxx --docker-password=xxxxx --docker-email=wp8155562@gmail.com"
+			
+                sh returnStatus: true, script: "docker run --rm --volumes-from data ${kubectl_image_link} --kubeconfig /data/admin.conf apply -f /data/yaml -n ${env.NAME_SPACE}"
+		sh "sleep 15"
+                //sh returnStatus: true, script: "docker run --rm --volumes-from data ${kubectl_image_link} --kubeconfig /data/admin.conf create -f /data/dev/ -n ${env.NAME_SPACE}"
+		//sh "apt-get -y update && apt-get install -y jq "
+
+                //sh "sleep 20"
+
+                //sh returnStatus: true, script: "docker run --rm --volumes-from data ${kubectl_image_link} --kubeconfig /data/admin.conf get pods -n ${env.NAME_SPACE} --output=json|jq '.items[].metadata.name'>k8s/pod_name"
+                //def r_v = readFile("k8s/pod_name")
+                //def r_vv = r_v[0..-2]
+		//echo r_vv
+		//sh "sleep 10"
+
+		//try{
+		//	sh "docker run --rm --volumes-from data ${kubectl_image_link} --kubeconfig /data/admin.conf exec ${r_vv} -n ${env.NAME_SPACE} ls  /opt/ci123/www/html"
+                //}catch (exc){
+		//	sh "docker run --rm --volumes-from data ${kubectl_image_link} --kubeconfig /data/admin.conf delete pod ${r_vv} -n ${env.NAME_SPACE}"
+		//	sh "sleep 60"
+                //}
+		sh "docker run --rm --volumes-from data ${kubectl_image_link} --kubeconfig /data/admin.conf get pods -n ${env.NAME_SPACE}"
+		//sh "docker run --rm --volumes-from data ${kubectl_image_link} --kubeconfig /data/admin.conf get pods -n ${env.NAME_SPACE} --output=json|jq '.items[].metadata.name' >k8s/pod_name"
+                //def r_v2 = readFile("k8s/pod_name")
+                //def r_vv2 = r_v2[0..-2]
+                //echo r_vv2
+                //sh "sleep 20"
+		def r_vv = "xxx"
+                //sh returnStatus: true, script: "docker run --rm --volumes-from data ${kubectl_image_link} --kubeconfig /data/admin.conf exec ${r_vv2} -n ${env.NAME_SPACE} ls /opt/ci123/www/html"
+		mail body: "jenkins-${JOB_NAME}-${BUILD_NUMBER} success", subject: "${JOB_NAME}-${BUILD_NUMBER} 发布成功,Pod:${r_vv}", to: "${email_to}", cc: "${email_cc}"
+	}
+}
+
+@NonCPS
+def rm_images_none_list() {
+       	sh 'touch images_none_list'
+       	sh 'docker images | grep "<none>" | awk "{print \\$3}" >images_none_list'
+	sh 'cat images_none_list'
+	sh 'cat images_none_list | while read line; do docker rmi -f \$line; done'
+       	sh 'rm -f images_none_list'
+
+	echo "rm_images_none_list exec ok!"
+}
+
+def rm_docker_pod_exited_list(){
+	sh 'touch docker_pod_exited_list'
+	sh 'docker ps --all -q -f status=exited > docker_pod_exited_list'
+	sh 'cat docker_pod_exited_list'
+	sh 'cat docker_pod_exited_list | while read line; do docker rm -f \$line; done'
+	sh 'rm -f docker_pod_exited_list'
+	echo "rm_docker_pod_exited_list exec ok!"
+}
+
+//def flavor = flavor(env.BRANCH_NAME)
+def flavor(branchName) {
+  	def matcher = (env.BRANCH_NAME =~ /QA_([a-z_]+)/)
+  	assert matcher.matches()
+  	matcher[0][1]
+}

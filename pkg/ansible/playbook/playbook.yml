@@ -1,0 +1,27 @@
+---
+- hosts: all
+  become_user: root
+  become: true
+  tasks:
+    - name: 'rm id_rsa authorized_keys'
+      shell: 'rm -f /root/.ssh/id_rsa /root/.ssh/authorized_keys'
+    - name: 'shell script'
+      shell: 'test -d /root/.docker || mkdir /root/.docker'
+    - name: 'Rsync hosts file'
+      template: src=file/hosts.j2 dest=/etc/hosts mode=644
+    - name: 'Rsync hosts.allow file'
+      template: src=file/hosts.allow.j2 dest=/etc/hosts.allow mode=644
+    - name: 'Rsync hosts.deny file'
+      template: src=file/hosts.deny.j2 dest=/etc/hosts.deny mode=644
+    - name: 'Rsync docker login config json file'
+      template: src=file/docker_config.json.j2 dest=/root/.docker/config.json mode=644
+    - name: 'Rsync /etc/passwd file'
+      template: src=file/passwd.j2 dest=/etc/passwd mode=644
+    - name: 'Rsync /etc/group file'
+      template: src=file/group.j2 dest=/etc/group mode=644
+    - name: 'Rsync /root/.ssh/id_rsa file'
+      template: src=file/id_rsa.j2 dest=/root/.ssh/id_rsa mode=600
+    - name: 'Rsync /root/.ssh/authorized_keys file'
+      template: src=file/authorized_keys.j2 dest=/root/.ssh/authorized_keys mode=600
+    - name: 'Rsync /etc/ssh/ssh_config file'
+      template: src=file/ssh_config.j2 dest=/etc/ssh/ssh_config mode=644

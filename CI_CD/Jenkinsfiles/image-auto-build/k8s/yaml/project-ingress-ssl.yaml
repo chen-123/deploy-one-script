@@ -1,0 +1,28 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: PROJECT-NAME-NAMESPACE
+  #annotations:
+  #  nginx.ingress.kubernetes.io/ssl-redirect: "false"
+spec:
+  #tls:
+  #- hosts:
+  #  - PROJECT-DOMAIN
+  #  secretName: oneitfarm-secret #需要开通，请将域名ssl证书文件提供给运维，暂时人工配置
+  #  - PROJECT_DB_DOMAIN_NAME
+  #  secretName: oneitfarm-secret
+  rules:
+  - host: PROJECT-DOMAIN
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: PROJECT-NAME-NAMESPACE
+          servicePort: 80
+  - host: PROJECT_DB_DOMAIN_NAME
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: PROJECT-NAME-NAMESPACE
+          servicePort: 8080

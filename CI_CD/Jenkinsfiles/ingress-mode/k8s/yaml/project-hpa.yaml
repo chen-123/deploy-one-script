@@ -1,0 +1,12 @@
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: PROJECT-NAME-NAMESPACE
+spec:
+  scaleTargetRef:
+    apiVersion: extensions/v1beta1
+    kind: Deployment
+    name: PROJECT-NAME-NAMESPACE
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 50

@@ -1,0 +1,23 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: PROJECT-NAME
+  annotations:
+    #ingress.kubernetes.io/auth-type: basic
+    #ingress.kubernetes.io/auth-secret: basic-auth
+    #ingress.kubernetes.io/auth-realm: "Authentication Required"
+    ingress.kubernetes.io/whitelist-source-range: 218.94.95.48/28 
+    #nginx.ingress.kubernetes.io/ssl-redirect: "false"
+spec:
+  #tls:
+  #- hosts:
+  #  - PROJECT-NAME-DOMAIN
+  #  secretName: oneitfarm-secret # 需要配置https请与运维沟通
+  rules:
+  - host: PROJECT-NAME-DOMAIN
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: PROJECT-NAME-db
+          servicePort: 80

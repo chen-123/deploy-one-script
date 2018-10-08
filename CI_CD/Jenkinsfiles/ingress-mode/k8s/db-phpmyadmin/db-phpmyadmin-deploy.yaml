@@ -1,0 +1,50 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: PROJECT-NAME-db
+spec:
+  replicas: 1
+  minReadySeconds: 60  
+  strategy:
+    rollingUpdate: 
+      maxSurge: 1    
+      maxUnavailable: 1 
+  template:
+    metadata:
+      name: PROJECT-NAME-db
+      labels:
+        app: PROJECT-NAME-db
+    spec:
+      tolerations:
+      - effect: NoSchedule
+        operator: Exists
+        key: node-role.kubernetes.io/master
+      - effect: NoSchedule
+        operator: Exists
+        key: node.cloudprovider.kubernetes.io/uninitialized
+      nodeSelector:
+         beta.kubernetes.io/arch: amd64
+
+      terminationGracePeriodSeconds: 60 
+      
+      imagePullSecrets:
+      - name: aliyun-sec
+      containers:
+      - name: PROJECT-NAME-db
+        imagePullPolicy: Always
+        image: docker.io/phpmyadmin/phpmyadmin 
+        resources:
+          requests:
+            cpu: 0.5
+            memory: 100Mi
+          limits:
+            cpu: 1
+            memory: 300Mi
+
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+        env:
+          - name: PMA_HOST 
+            value: MYSQL_HOST
+        

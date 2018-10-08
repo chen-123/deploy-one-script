@@ -1,0 +1,2 @@
+[k8s-nodes]
+192.168.0.146 ansible_ssh_user=root ansible_ssh_pass=Phpdbaci123

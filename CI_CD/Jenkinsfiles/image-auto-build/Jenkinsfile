@@ -1,0 +1,182 @@
+node('jenkins-slave-noc'){
+	env.tarfilename_project = "release_${env.PROJECT_NAME}_${env.BUILD_TAG}.tar.gz"
+	env.tarfilename_k8s = "k8s_conf_${env.PROJECT_NAME}_${env.BUILD_TAG}.tar.gz"
+        def git_ci_url = "git@gitlab.chen-123.com:noc/k8s-ci-pipeline.git"
+	def git_ci_path = "image-auto-build"
+
+	def push_register = 'harbor.chen-123.com'	
+	def push_username='admin'
+	def push_password='xxxxx'
+
+	def email_to = 'wp8155562@gmail.com'
+	def email_cc = ''
+	def email_from='jenkins@chen-123.com'
+
+	def kubectl_image_link = "docker.io/lachlanevenson/k8s-kubectl:v1.8.1"
+
+	if ( env.gitlabUserEmail && env.gitlabUserEmail != email_to ){
+		email_to = "${env.gitlabUserEmail},wp8155562@gmail.com"
+	}
+
+	if ( env.CC_EMAILS && env.CC_EMAILS != email_to ){
+                email_cc = "${env.CC_EMAILS}"
+        }
+
+	if ( email_cc != email_to ){
+		email_to = "${email_to},${email_cc}"
+	}
+
+	if ( env.GIT_CI_PATH && env.GIT_CI_PATH != git_ci_path ){
+                git_ci_path = "${env.GIT_CI_PATH}"
+        }
+
+	def git_tag = git_ci_path
+
+	currentBuild.result = "SUCCESS"
+
+	stage('初始化部署环境') {
+		echo "Container Prep Start"
+		echo "branch_name: ${env.gitlabBRANCH}"
+		rm_images_none_list()
+		rm_docker_pod_exited_list()
+
+		echo "jenkins_slave_label:${env.NODE_LABELS}"
+		//sh 'printenv'
+
+		sh "export GIT_DISCOVERY_ACROSS_FILESYSTEM=1"
+		sh "ssh -T git@gitlab.chen-123.com"
+		sh "git config --global user.name 'noc'"
+		sh "git config --global user.email 'wp8155562@gmail.com'"
+		sh "ls -la /root"
+	}
+	
+	stage('拉取代码生成Dockerfile') {
+                sh "pwd"
+		sh "ls -l"
+
+		try {
+			sh "git init ."
+                	sh "git config core.sparsecheckout true"
+                	sh "echo '${git_ci_path}/*'>>.git/info/sparse-checkout"
+                	sh "git remote add origin ${git_ci_url}"
+                	sh "git pull origin master"
+			// 检测效验操作
+                	sh "ls -l"
+                	sh "pwd"
+
+			// 判断是否传入分支名称，做相应操作
+			if ( env.GIT_SOURCE_BRANCH == "" ) {
+				sh "git submodule add ${env.GIT_SOURCE_ADDR} ${git_ci_path}/src"
+			}else{
+				sh "git submodule add -b ${env.GIT_SOURCE_BRANCH} ${env.GIT_SOURCE_ADDR} ${git_ci_path}/src"
+			}
+
+			// 通过submodule的方式拉取项目代码
+                	sh "git submodule init"
+                	sh "git submodule update"
+
+			// 依据系统传入参数，更新Dockerfile配置文件
+			dir ("./${git_ci_path}") {
+				sh "sed -i.bak 's#BASE_REGISTER_IMAGE#${env.BASE_REGISTER_IMAGE}#' ./Dockerfile"
+                        	sh "sed -i.bak 's#PROJECT_NAME#${env.PROJECT_NAME}#' ./Dockerfile"
+                        	sh "cat ./Dockerfile"
+                        	sh "ls -l ./src"
+			}
+			
+			// 将相关配置文件打包备份
+			sh "tar zcvf ${env.tarfilename_k8s} --exclude=${git_ci_path}/src ./${git_ci_path}"
+
+			sh "test -d /k8s-data/jenkins_autodeploy_code/chen-123_Dockerfile/${env.PROJECT_NAME} || mkdir -p /k8s-data/jenkins_autodeploy_code/chen-123_Dockerfile/${env.PROJECT_NAME} || true"
+			sh "ls -l /k8s-data/jenkins_autodeploy_code/chen-123_Dockerfile"
+                	sh "ls -l /k8s-data/jenkins_autodeploy_code/chen-123_Dockerfile/${env.PROJECT_NAME}"
+
+			sh "cp ${env.tarfilename_k8s} /k8s-data/jenkins_autodeploy_code/chen-123_Dockerfile/${env.PROJECT_NAME}"
+                	sh "ls -l /k8s-data/jenkins_autodeploy_code/chen-123_Dockerfile/${env.PROJECT_NAME}"
+			// 执行前端代码系统，依赖包下载命令。比如：npm install，comopser install等
+			if ( env.EXT_COMMAND ) {
+				echo "${env.EXT_COMMAND}"
+				sh "ln -s /k8s-data/node-v8.9.4/bin/* /usr/local/bin/ && node -v && npm -v"
+				sh "${env.EXT_COMMAND}"
+			}
+
+		}catch (exc) {
+                        echo 'Something failed!'
+                        currentBuild.result = "FAILURE"
+		}
+		
+		if ( currentBuild.result == "FAILURE" ) {
+			sh "sleep 2"
+                        step([$class: 'Mailer', notifyEveryUnstableBuild: true, recipients: "${email_to}", sendToIndividuals: true])
+                        error '拉取代码生成Dockerfile 操作失败，详细见邮件或者日志记录'
+                }
+
+	} 
+
+
+	stage("项目新镜像build & push") {
+		// 依据最新Dockerfile文件及APP_REGISTER_IMAGE定义，构建新镜像
+		try {
+			echo "docker build image tag=>${env.APP_REGISTER_IMAGE}"
+
+			dir ("${git_ci_path}") {
+				sh "docker build -t ${env.APP_REGISTER_IMAGE} ."
+			}
+
+		}catch (exc) {
+			echo 'docker build failed!'
+			currentBuild.result = "FAILURE"
+		}
+
+		// 将上一步构建好的新镜像，推送到镜像库系统，供后续流程使用
+		if ( currentBuild.result != "FAILURE" ) {
+                	try {
+                        	sh "docker login ${push_register} -u ${push_username} -p${push_password}"
+                        	sh "docker push ${env.APP_REGISTER_IMAGE}"
+                        	sh "echo 'push ok'"
+                        	sh "sleep 10"
+                	}catch (exc) {
+                        	echo 'Push failed!'
+				currentBuild.result = "FAILURE"
+                	}
+		}
+
+		// 处理one-deploy后台webhook请求，通知one-deploy后台继续完成发布任务
+		if ( currentBuild.result != "FAILURE" ) {
+			try {
+				sh "curl ${env.CALL_BACK_WEBHOOK} -k -o /dev/null"
+			}catch (exc) {
+				echo 'one-deploy 回调失败!'
+				currentBuild.result = "FAILURE"
+			}
+		}
+
+		if ( currentBuild.result == "FAILURE" ) {
+			sh "sleep 2"
+                        step([$class: 'Mailer', notifyEveryUnstableBuild: true, recipients: "${email_to}", sendToIndividuals: true])
+                        error '项目新镜像build & push 操作失败，详细见邮件或者日志记录'
+                } else {
+			mail body: "jenkins-${JOB_NAME}-${BUILD_NUMBER} 通知one-deploy继续CI部署，${env.APP_REGISTER_IMAGE} 构建成功!", subject: "${JOB_NAME}-${BUILD_NUMBER} 通知继续CI流程", to: "${email_to}"
+		}
+        }
+
+}
+
+@NonCPS
+def rm_images_none_list() {
+       	sh 'touch images_none_list'
+       	sh 'docker images | grep "<none>" | awk "{print \\$3}" >images_none_list'
+	sh 'cat images_none_list'
+	sh 'cat images_none_list | while read line; do docker rmi -f \$line; done'
+       	sh 'rm -f images_none_list'
+
+	echo "rm_images_none_list exec ok!"
+}
+
+def rm_docker_pod_exited_list(){
+	sh 'touch docker_pod_exited_list'
+	sh 'docker ps --all -q -f status=exited > docker_pod_exited_list'
+	sh 'cat docker_pod_exited_list'
+	sh 'cat docker_pod_exited_list | while read line; do docker rm -f \$line; done'
+	sh 'rm -f docker_pod_exited_list'
+	echo "rm_docker_pod_exited_list exec ok!"
+}

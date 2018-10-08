@@ -1,0 +1,153 @@
+<?xml version='1.1' encoding='UTF-8'?>
+<flow-definition plugin="workflow-job@2.17">
+  <actions>
+    <org.jenkinsci.plugins.pipeline.modeldefinition.actions.DeclarativeJobAction plugin="pipeline-model-definition@1.2.7"/>
+    <org.jenkinsci.plugins.pipeline.modeldefinition.actions.DeclarativeJobPropertyTrackerAction plugin="pipeline-model-definition@1.2.7">
+      <jobProperties/>
+      <triggers/>
+      <parameters/>
+    </org.jenkinsci.plugins.pipeline.modeldefinition.actions.DeclarativeJobPropertyTrackerAction>
+  </actions>
+  <description>适配one-deploy 构建镜像，构建成功之后调用one-deploy后台webhook</description>
+  <displayName>one-deploy自动构建后端镜像</displayName>
+  <keepDependencies>false</keepDependencies>
+  <properties>
+    <hudson.security.AuthorizationMatrixProperty>
+      <inheritanceStrategy class="org.jenkinsci.plugins.matrixauth.inheritance.InheritParentStrategy"/>
+      <permission>com.cloudbees.plugins.credentials.CredentialsProvider.Create:authenticated</permission>
+      <permission>com.cloudbees.plugins.credentials.CredentialsProvider.ManageDomains:authenticated</permission>
+      <permission>com.cloudbees.plugins.credentials.CredentialsProvider.Update:authenticated</permission>
+      <permission>com.cloudbees.plugins.credentials.CredentialsProvider.View:authenticated</permission>
+      <permission>hudson.model.Item.Build:authenticated</permission>
+      <permission>hudson.model.Item.Cancel:authenticated</permission>
+      <permission>hudson.model.Item.Configure:authenticated</permission>
+      <permission>hudson.model.Item.Discover:authenticated</permission>
+      <permission>hudson.model.Item.Read:authenticated</permission>
+      <permission>hudson.model.Item.Workspace:authenticated</permission>
+      <permission>hudson.model.Run.Replay:authenticated</permission>
+      <permission>hudson.model.Run.Update:authenticated</permission>
+      <permission>hudson.scm.SCM.Tag:authenticated</permission>
+    </hudson.security.AuthorizationMatrixProperty>
+    <com.dabsquared.gitlabjenkins.connection.GitLabConnectionProperty plugin="gitlab-plugin@1.5.3">
+      <gitLabConnection>k8s-gitlab</gitLabConnection>
+    </com.dabsquared.gitlabjenkins.connection.GitLabConnectionProperty>
+    <org.jenkinsci.plugins.gitlablogo.GitlabLogoProperty plugin="gitlab-logo@1.0.3">
+      <repositoryName></repositoryName>
+    </org.jenkinsci.plugins.gitlablogo.GitlabLogoProperty>
+    <org.jenkinsci.plugins.mailwatcher.WatcherJobProperty plugin="mail-watcher-plugin@1.16">
+      <watcherAddresses>wp8155562@gmail.com</watcherAddresses>
+    </org.jenkinsci.plugins.mailwatcher.WatcherJobProperty>
+    <hudson.model.ParametersDefinitionProperty>
+      <parameterDefinitions>
+        <hudson.plugins.global__variable__string__parameter.GlobalVariableStringParameterDefinition plugin="global-variable-string-parameter@1.2">
+          <name>PROJECT_NAME</name>
+          <description>auto deploy PROJECT_NAME</description>
+          <defaultValue>p11-a12-m-b</defaultValue>
+          <trim>false</trim>
+        </hudson.plugins.global__variable__string__parameter.GlobalVariableStringParameterDefinition>
+        <hudson.plugins.global__variable__string__parameter.GlobalVariableStringParameterDefinition plugin="global-variable-string-parameter@1.2">
+          <name>GIT_SOURCE_ADDR</name>
+          <description>git ssh 访问地址</description>
+          <defaultValue>git@gitlab.chen-123.com:Hu/p11-a12-m-b.git</defaultValue>
+          <trim>false</trim>
+        </hudson.plugins.global__variable__string__parameter.GlobalVariableStringParameterDefinition>
+        <hudson.plugins.global__variable__string__parameter.GlobalVariableStringParameterDefinition plugin="global-variable-string-parameter@1.2">
+          <name>GIT_SOURCE_BRANCH</name>
+          <description>git source branch分支名称</description>
+          <defaultValue></defaultValue>
+          <trim>false</trim>
+        </hudson.plugins.global__variable__string__parameter.GlobalVariableStringParameterDefinition>
+        <hudson.plugins.global__variable__string__parameter.GlobalVariableStringParameterDefinition plugin="global-variable-string-parameter@1.2">
+          <name>GIT_CI_PATH</name>
+          <description>GIT_CI_URL 下二级目录名称，不要随便更换</description>
+          <defaultValue></defaultValue>
+          <trim>false</trim>
+        </hudson.plugins.global__variable__string__parameter.GlobalVariableStringParameterDefinition>
+        <hudson.plugins.global__variable__string__parameter.GlobalVariableStringParameterDefinition plugin="global-variable-string-parameter@1.2">
+          <name>CC_EMAILS</name>
+          <description>抄送邮件列表</description>
+          <defaultValue>wp8155562@gmail.com</defaultValue>
+          <trim>false</trim>
+        </hudson.plugins.global__variable__string__parameter.GlobalVariableStringParameterDefinition>
+        <hudson.plugins.global__variable__string__parameter.GlobalVariableStringParameterDefinition plugin="global-variable-string-parameter@1.2">
+          <name>BASE_REGISTER_IMAGE</name>
+          <description>BASE镜像地址</description>
+          <defaultValue>harbor.chen-123.com/noc/chen-123:prod-php-nginx-5.6</defaultValue>
+          <trim>false</trim>
+        </hudson.plugins.global__variable__string__parameter.GlobalVariableStringParameterDefinition>
+        <hudson.plugins.global__variable__string__parameter.GlobalVariableStringParameterDefinition plugin="global-variable-string-parameter@1.2">
+          <name>APP_REGISTER_IMAGE</name>
+          <description>应用的镜像地址</description>
+          <defaultValue>harbor.chen-123.com/noc/p11-a12-m-b:master</defaultValue>
+          <trim>false</trim>
+        </hudson.plugins.global__variable__string__parameter.GlobalVariableStringParameterDefinition>
+        <hudson.plugins.global__variable__string__parameter.GlobalVariableStringParameterDefinition plugin="global-variable-string-parameter@1.2">
+          <name>CALL_BACK_WEBHOOK</name>
+          <description>回调webhook 链接</description>
+          <defaultValue>http://www.chen-123.com</defaultValue>
+          <trim>false</trim>
+        </hudson.plugins.global__variable__string__parameter.GlobalVariableStringParameterDefinition>
+        <hudson.plugins.global__variable__string__parameter.GlobalVariableStringParameterDefinition plugin="global-variable-string-parameter@1.2">
+          <name>WEBHOOK_PROJECT_ID</name>
+          <description>触发连接</description>
+          <defaultValue>100</defaultValue>
+          <trim>false</trim>
+        </hudson.plugins.global__variable__string__parameter.GlobalVariableStringParameterDefinition>
+        <hudson.plugins.global__variable__string__parameter.GlobalVariableStringParameterDefinition plugin="global-variable-string-parameter@1.2">
+          <name>EXT_COMMAND</name>
+          <description>外部命令</description>
+          <defaultValue>which ls</defaultValue>
+          <trim>false</trim>
+        </hudson.plugins.global__variable__string__parameter.GlobalVariableStringParameterDefinition>
+      </parameterDefinitions>
+    </hudson.model.ParametersDefinitionProperty>
+    <org.jenkinsci.plugins.workflow.job.properties.PipelineTriggersJobProperty>
+      <triggers>
+        <com.dabsquared.gitlabjenkins.GitLabPushTrigger plugin="gitlab-plugin@1.5.3">
+          <spec></spec>
+          <triggerOnPush>true</triggerOnPush>
+          <triggerOnMergeRequest>true</triggerOnMergeRequest>
+          <triggerOnPipelineEvent>false</triggerOnPipelineEvent>
+          <triggerOnAcceptedMergeRequest>false</triggerOnAcceptedMergeRequest>
+          <triggerOnClosedMergeRequest>false</triggerOnClosedMergeRequest>
+          <triggerOnApprovedMergeRequest>true</triggerOnApprovedMergeRequest>
+          <triggerOpenMergeRequestOnPush>never</triggerOpenMergeRequestOnPush>
+          <triggerOnNoteRequest>true</triggerOnNoteRequest>
+          <noteRegex>Jenkins please retry a build</noteRegex>
+          <ciSkip>true</ciSkip>
+          <skipWorkInProgressMergeRequest>true</skipWorkInProgressMergeRequest>
+          <setBuildDescription>true</setBuildDescription>
+          <branchFilterType>All</branchFilterType>
+          <includeBranchesSpec></includeBranchesSpec>
+          <excludeBranchesSpec></excludeBranchesSpec>
+          <targetBranchRegex></targetBranchRegex>
+          <secretToken>{AQAAABAAAAAw79lTENSLFtZL1zAKd6op5v+CMBGJNkUcPD7RGz0dlIbYPREqNbYn08ycZG0pYx+1puCWLDPCf0ZFTCetEXfVxw==}</secretToken>
+        </com.dabsquared.gitlabjenkins.GitLabPushTrigger>
+      </triggers>
+    </org.jenkinsci.plugins.workflow.job.properties.PipelineTriggersJobProperty>
+  </properties>
+  <definition class="org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition" plugin="workflow-cps@2.44">
+    <scm class="hudson.plugins.git.GitSCM" plugin="git@3.7.0">
+      <configVersion>2</configVersion>
+      <userRemoteConfigs>
+        <hudson.plugins.git.UserRemoteConfig>
+          <url>https://gitlab.chen-123.com/noc/k8s-ci-pipeline.git</url>
+          <credentialsId>noc</credentialsId>
+        </hudson.plugins.git.UserRemoteConfig>
+      </userRemoteConfigs>
+      <branches>
+        <hudson.plugins.git.BranchSpec>
+          <name>*/master</name>
+        </hudson.plugins.git.BranchSpec>
+      </branches>
+      <doGenerateSubmoduleConfigurations>false</doGenerateSubmoduleConfigurations>
+      <submoduleCfg class="list"/>
+      <extensions/>
+    </scm>
+    <scriptPath>image-auto-build/Jenkinsfile</scriptPath>
+    <lightweight>true</lightweight>
+  </definition>
+  <triggers/>
+  <authToken>phpdba.com</authToken>
+  <disabled>false</disabled>
+</flow-definition>

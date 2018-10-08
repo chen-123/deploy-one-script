@@ -1,0 +1,113 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: PROJECT-NAME-NAMESPACE  #deploy 项目部署名称
+spec:
+  replicas: 1
+  minReadySeconds: 60  
+  strategy:
+    rollingUpdate: 
+      maxSurge: 1    
+      maxUnavailable: 1 
+  template:
+    metadata:
+      name: PROJECT-NAME-NAMESPACE 
+      labels:
+        app: PROJECT-NAME-NAMESPACE
+    spec:
+      tolerations:
+      - effect: NoSchedule
+        operator: Exists
+        key: node-role.kubernetes.io/master
+      - effect: NoSchedule
+        operator: Exists
+        key: node.cloudprovider.kubernetes.io/uninitialized
+      nodeSelector:
+         beta.kubernetes.io/arch: amd64
+
+      terminationGracePeriodSeconds: 60 
+      
+      imagePullSecrets:
+      - name: aliyun-sec  # 镜像默认都上传到阿里云镜像库，私有。secret 创建见文档,注意名称。
+      containers:
+      - name: db-server
+        image: docker.io/chenphper/mysql
+        env:
+          - name: MYSQL_ROOT_PASSWORD
+            value: 'MYSQL_PASSWORD'
+          - name: MYSQL_DATABASE
+            value: 'MYSQL_DBNAME'
+        volumeMounts:
+        - mountPath: /var/lib/mysql
+          name: PROJECT-NAME-NAMESPACE-mysql-pvc
+          #name: mysql-data
+        resources:
+          requests:
+            cpu: 0.1
+            memory: 100Mi
+          limits:
+            cpu: 0.3
+            memory: 300Mi
+
+      - name: PROJECT-NAME-db
+        imagePullPolicy: Always
+        image: registry.cn-hangzhou.aliyuncs.com/noc/phpmyadmin:v20180126
+        env:
+          - name: PMA_HOST
+            value: 'MYSQL_HOST'
+        resources:
+          requests:
+            cpu: 0.1
+            memory: 100Mi
+          limits:
+            cpu: 0.3
+            memory: 300Mi
+
+      - name: PROJECT-NAME-NAMESPACE
+        imagePullPolicy: Always
+        image: REGISTER-IMAGE
+        volumeMounts:
+        - mountPath: /var/www/html
+        #- mountPath: /opt/ci123/www/html
+          #name: code-data
+          name: PROJECT-NAME-NAMESPACE-code-pvc 
+        resources:
+          requests:
+            cpu: 0.1
+            memory: 100Mi
+          limits:
+            cpu: 0.3
+            memory: 300Mi
+
+        ports:
+        - containerPort: 80
+          protocol: TCP
+        - containerPort: 8080
+          protocol: TCP
+        - containerPort: 3306
+          protocol: TCP
+        env:
+          - name: DB_HOST 
+            value: 'MYSQL_HOST'
+          - name: DB_PORT
+            value: 'MYSQL_PORT'
+          - name: DB_USERNAME
+            value: 'MYSQL_USERNAME'
+          - name: DB_PASSWORD
+            value: 'MYSQL_PASSWORD'
+        
+      volumes:
+      - name: PROJECT-NAME-NAMESPACE-mysql-pvc
+        persistentVolumeClaim:
+          claimName: PROJECT-NAME-NAMESPACE-mysql-claim
+
+      - name: PROJECT-NAME-NAMESPACE-code-pvc
+        persistentVolumeClaim:
+          claimName: PROJECT-NAME-NAMESPACE-code-claim
+
+      - name: code-data
+        hostPath:
+          path: /k8s-data/jenkins_autodeploy_code/PROJECT-NAME #新项目目录可能不存在，需提前与运维申请存储空间
+      - name: mysql-data
+        hostPath: 
+          path: /k8s-data/jenkins_autodeploy_db/PROJECT-NAME

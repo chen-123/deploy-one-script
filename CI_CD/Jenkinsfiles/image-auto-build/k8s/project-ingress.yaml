@@ -1,0 +1,15 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: NAMESPACE
+  #annotations:
+  #  nginx.ingress.kubernetes.io/ssl-redirect: "false"
+spec:
+  rules:
+  - host: PROJECT-DOMAIN  #访问域名
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: PROJECT-NAME
+          servicePort: 80

@@ -1,0 +1,11 @@
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: PROJECT-NAME-NAMESPACE-mysql-claim 
+spec:
+  volumeName: PROJECT-NAME-NAMESPACE-mysql-pv 
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 20Gi

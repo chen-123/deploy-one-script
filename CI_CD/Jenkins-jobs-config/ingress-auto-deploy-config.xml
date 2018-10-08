@@ -1,0 +1,154 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<flow-definition plugin="workflow-job@2.17">
+  <actions>
+    <org.jenkinsci.plugins.pipeline.modeldefinition.actions.DeclarativeJobAction plugin="pipeline-model-definition@1.2.6"/>
+    <org.jenkinsci.plugins.pipeline.modeldefinition.actions.DeclarativeJobPropertyTrackerAction plugin="pipeline-model-definition@1.2.6">
+      <jobProperties/>
+      <triggers/>
+      <parameters/>
+    </org.jenkinsci.plugins.pipeline.modeldefinition.actions.DeclarativeJobPropertyTrackerAction>
+    <io.jenkins.blueocean.service.embedded.BlueOceanUrlAction plugin="blueocean-rest-impl@1.4.0">
+      <blueOceanUrlObject class="io.jenkins.blueocean.service.embedded.BlueOceanUrlObjectImpl">
+        <mappedUrl>blue/organizations/jenkins/ingress-auto-deploy</mappedUrl>
+      </blueOceanUrlObject>
+    </io.jenkins.blueocean.service.embedded.BlueOceanUrlAction>
+  </actions>
+  <description>适配已经成功发布的pod的应用，另外开通子应用或者功能模块ingress入口流程管控&#xd;
+ingress-auto-deploy pipeline scripte</description>
+  <displayName>k8s ingress 自动更新流程</displayName>
+  <keepDependencies>false</keepDependencies>
+  <properties>
+    <com.dabsquared.gitlabjenkins.connection.GitLabConnectionProperty plugin="gitlab-plugin@1.5.2">
+      <gitLabConnection>k8s-gitlab</gitLabConnection>
+    </com.dabsquared.gitlabjenkins.connection.GitLabConnectionProperty>
+    <org.jenkinsci.plugins.gitlablogo.GitlabLogoProperty plugin="gitlab-logo@1.0.3">
+      <repositoryName></repositoryName>
+    </org.jenkinsci.plugins.gitlablogo.GitlabLogoProperty>
+    <org.jenkinsci.plugins.mailwatcher.WatcherJobProperty plugin="mail-watcher-plugin@1.16">
+      <watcherAddresses>wp8155562@gmail.com</watcherAddresses>
+    </org.jenkinsci.plugins.mailwatcher.WatcherJobProperty>
+    <hudson.model.ParametersDefinitionProperty>
+      <parameterDefinitions>
+        <hudson.plugins.global__variable__string__parameter.GlobalVariableStringParameterDefinition plugin="global-variable-string-parameter@1.2">
+          <name>PROJECT_NAME</name>
+          <description>ingress mode auto deploy var</description>
+          <defaultValue>chen-123</defaultValue>
+          <trim>false</trim>
+        </hudson.plugins.global__variable__string__parameter.GlobalVariableStringParameterDefinition>
+        <hudson.plugins.global__variable__string__parameter.GlobalVariableStringParameterDefinition plugin="global-variable-string-parameter@1.2">
+          <name>DEPLOY_PROJECT_DOMAIN</name>
+          <description>访问域名</description>
+          <defaultValue>chen-123.idg-dev.chen-123.com</defaultValue>
+          <trim>false</trim>
+        </hudson.plugins.global__variable__string__parameter.GlobalVariableStringParameterDefinition>
+        <hudson.plugins.global__variable__string__parameter.GlobalVariableStringParameterDefinition plugin="global-variable-string-parameter@1.2">
+          <name>CC_EMAILS</name>
+          <description>抄送邮件列表</description>
+          <defaultValue>cjy@corp-ci.com</defaultValue>
+          <trim>false</trim>
+        </hudson.plugins.global__variable__string__parameter.GlobalVariableStringParameterDefinition>
+        <hudson.plugins.global__variable__string__parameter.GlobalVariableStringParameterDefinition plugin="global-variable-string-parameter@1.2">
+          <name>NAME_SPACE</name>
+          <description>应用发布到k8s的namespace名称</description>
+          <defaultValue>backend</defaultValue>
+          <trim>false</trim>
+        </hudson.plugins.global__variable__string__parameter.GlobalVariableStringParameterDefinition>
+        <hudson.plugins.global__variable__string__parameter.GlobalVariableStringParameterDefinition plugin="global-variable-string-parameter@1.2">
+          <name>GIT_CI_PATH</name>
+          <description>GIT_CI_URL 下二级目录名称，不要随便更换</description>
+          <defaultValue></defaultValue>
+          <trim>false</trim>
+        </hudson.plugins.global__variable__string__parameter.GlobalVariableStringParameterDefinition>
+        <hudson.plugins.global__variable__string__parameter.GlobalVariableStringParameterDefinition plugin="global-variable-string-parameter@1.2">
+          <name>APP_REGISTER_IMAGE</name>
+          <description>应用的镜像地址</description>
+          <defaultValue>registry.cn-hangzhou.aliyuncs.com/noc/wordpress:git_v200</defaultValue>
+          <trim>false</trim>
+        </hudson.plugins.global__variable__string__parameter.GlobalVariableStringParameterDefinition>
+        <hudson.plugins.global__variable__string__parameter.GlobalVariableStringParameterDefinition plugin="global-variable-string-parameter@1.2">
+          <name>MYSQL_PASSWORD</name>
+          <description>mysql db root password</description>
+          <defaultValue>phpdba</defaultValue>
+          <trim>false</trim>
+        </hudson.plugins.global__variable__string__parameter.GlobalVariableStringParameterDefinition>
+        <hudson.plugins.global__variable__string__parameter.GlobalVariableStringParameterDefinition plugin="global-variable-string-parameter@1.2">
+          <name>MYSQL_DBNAME</name>
+          <description>应用数据库名称</description>
+          <defaultValue>wordpress</defaultValue>
+          <trim>false</trim>
+        </hudson.plugins.global__variable__string__parameter.GlobalVariableStringParameterDefinition>
+        <hudson.plugins.global__variable__string__parameter.GlobalVariableStringParameterDefinition plugin="global-variable-string-parameter@1.2">
+          <name>MYSQL_HOST</name>
+          <description>mysql host 默认放在同一pod内</description>
+          <defaultValue>127.0.0.1</defaultValue>
+          <trim>false</trim>
+        </hudson.plugins.global__variable__string__parameter.GlobalVariableStringParameterDefinition>
+        <hudson.plugins.global__variable__string__parameter.GlobalVariableStringParameterDefinition plugin="global-variable-string-parameter@1.2">
+          <name>MYSQL_PORT</name>
+          <description>mysql port 默认3306，启用其它端口请注意</description>
+          <defaultValue>3306</defaultValue>
+          <trim>false</trim>
+        </hudson.plugins.global__variable__string__parameter.GlobalVariableStringParameterDefinition>
+        <hudson.plugins.global__variable__string__parameter.GlobalVariableStringParameterDefinition plugin="global-variable-string-parameter@1.2">
+          <name>MYSQL_USERNAME</name>
+          <description>应用默认使用帐号</description>
+          <defaultValue>root</defaultValue>
+          <trim>false</trim>
+        </hudson.plugins.global__variable__string__parameter.GlobalVariableStringParameterDefinition>
+        <hudson.plugins.global__variable__string__parameter.GlobalVariableStringParameterDefinition plugin="global-variable-string-parameter@1.2">
+          <name>PROJECT_DB_DOMAIN_NAME</name>
+          <description>phpmyadmin </description>
+          <defaultValue>chen-123-db.idg-dev.chen-123.com</defaultValue>
+          <trim>false</trim>
+        </hudson.plugins.global__variable__string__parameter.GlobalVariableStringParameterDefinition>
+      </parameterDefinitions>
+    </hudson.model.ParametersDefinitionProperty>
+    <org.jenkinsci.plugins.workflow.job.properties.PipelineTriggersJobProperty>
+      <triggers>
+        <com.dabsquared.gitlabjenkins.GitLabPushTrigger plugin="gitlab-plugin@1.5.2">
+          <spec></spec>
+          <triggerOnPush>true</triggerOnPush>
+          <triggerOnMergeRequest>true</triggerOnMergeRequest>
+          <triggerOnPipelineEvent>false</triggerOnPipelineEvent>
+          <triggerOnAcceptedMergeRequest>false</triggerOnAcceptedMergeRequest>
+          <triggerOnClosedMergeRequest>false</triggerOnClosedMergeRequest>
+          <triggerOpenMergeRequestOnPush>never</triggerOpenMergeRequestOnPush>
+          <triggerOnNoteRequest>true</triggerOnNoteRequest>
+          <noteRegex>Jenkins please retry a build</noteRegex>
+          <ciSkip>true</ciSkip>
+          <skipWorkInProgressMergeRequest>true</skipWorkInProgressMergeRequest>
+          <setBuildDescription>true</setBuildDescription>
+          <branchFilterType>All</branchFilterType>
+          <includeBranchesSpec></includeBranchesSpec>
+          <excludeBranchesSpec></excludeBranchesSpec>
+          <targetBranchRegex></targetBranchRegex>
+          <secretToken>{AQAAABAAAAAwSbVGW/queQCln5hp2/YvWsVz06/uTcnty33uL8oeRfBwURu15YmecNUP8jsJek6tgTRxP/X9TzNHCGDk75CFXw==}</secretToken>
+        </com.dabsquared.gitlabjenkins.GitLabPushTrigger>
+      </triggers>
+    </org.jenkinsci.plugins.workflow.job.properties.PipelineTriggersJobProperty>
+  </properties>
+  <definition class="org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition" plugin="workflow-cps@2.43">
+    <scm class="hudson.plugins.git.GitSCM" plugin="git@3.7.0">
+      <configVersion>2</configVersion>
+      <userRemoteConfigs>
+        <hudson.plugins.git.UserRemoteConfig>
+          <url>https://gitlab.chen-123.com/noc/k8s-ci-pipeline.git</url>
+          <credentialsId>noc</credentialsId>
+        </hudson.plugins.git.UserRemoteConfig>
+      </userRemoteConfigs>
+      <branches>
+        <hudson.plugins.git.BranchSpec>
+          <name>*/master</name>
+        </hudson.plugins.git.BranchSpec>
+      </branches>
+      <doGenerateSubmoduleConfigurations>false</doGenerateSubmoduleConfigurations>
+      <submoduleCfg class="list"/>
+      <extensions/>
+    </scm>
+    <scriptPath>ingress-mode/Jenkinsfile</scriptPath>
+    <lightweight>true</lightweight>
+  </definition>
+  <triggers/>
+  <authToken>phpdba.com</authToken>
+  <disabled>false</disabled>
+</flow-definition>

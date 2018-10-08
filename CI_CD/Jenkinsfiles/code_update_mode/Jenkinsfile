@@ -1,0 +1,96 @@
+node('jenkins-slave-noc'){
+	env.tarfilename_project = "release_${env.PROJECT_NAME}_${env.BUILD_TAG}.tar.gz"
+	env.tarfilename_k8s = "k8s_conf_${env.PROJECT_NAME}_${env.BUILD_TAG}.tar.gz"
+
+        def git_ci_url = "https://gitlab.chen-123.com/noc/k8s-ci-pipeline.git"
+
+	def base_code_update_path = "/k8s-data/jenkins_autodeploy_code/gui_code"
+	
+	def push_register='harbor.chen-123.com'	
+	def push_username='chen-123'
+	def push_password='xxxxxxx'
+	def email_to = 'wp8155562@gmail.com'
+	def email_cc = 'phpdba@chen-123.com'
+	def email_from='jenkins@chen-123.com'
+
+	def kubectl_image_link = "docker.io/lachlanevenson/k8s-kubectl:v1.8.1"
+
+	if ( env.gitlabUserEmail && env.gitlabUserEmail != email_to ){
+		email_to = "${env.gitlabUserEmail},wp8155562@gmail.com"
+	}
+
+	if ( env.BASE_PATH != "" && env.BASE_PATH != base_code_update_path ) {
+		base_code_update_path = env.BASE_PATH
+	}
+
+	currentBuild.result = "SUCCESS"
+
+	stage('初始化部署环境') {
+		echo "Container Prep Start"
+		echo "branch_name: ${env.gitlabBRANCH}"
+		rm_images_none_list()
+		rm_docker_pod_exited_list()
+
+		echo "jenkins_slave_label:${env.NODE_LABELS}"
+		sh 'printenv'
+		echo "base_code_update_path => ${base_code_update_path}"
+
+		sh "export GIT_DISCOVERY_ACROSS_FILESYSTEM=1"
+		sh "ssh -T git@gitlab.chen-123.com"
+		sh "git config --global user.name 'noc'"
+		sh "git config --global user.email 'wp8155562@gmail.com'"
+		sh "ls -al /root"
+	}
+	
+	stage('拉取最新代码 & 更新预览代码') {
+
+		//git credentialsId: 'noc', url: "${env.GIT_SOURCE_ADDR}"
+
+		sh "ls -l"
+                sh "pwd"
+
+		dir ("${env.BASE_PATH}"){
+			sh "git pull origin master"
+		}
+
+		//dir ("${base_code_update_path}/preview/${env.PROJECT_NAME}") {
+		//	git pull origin master
+		//}
+
+		//sh "cd /k8s-data/shop_code;tar zcvf ${tarfilename_project} --exclude=seller_shop/.git seller_shop && mv ${tarfilename_project} backup"
+                //sh "cd /k8s-data/shop_code/seller_shop;git pull origin master"
+                //sh "cd /k8s-data/shop_code;tar zcvf ${tarfilename_project} --exclude=seller_shop/.git seller_shop && mv ${tarfilename_project} backup "
+                //sh "ssh root@192.168.83.45 'cd /k8s-data/shop_code/seller_shop;git pull origin master'"
+
+		//sh "test -d /k8s-data/jenkins_autodeploy_code/project_code/${env.PROJECT_NAME} || mkdir -p /k8s-data/jenkins_autodeploy_code/project_code/${env.PROJECT_NAME} || true"
+		//sh "ls -l /k8s-data/jenkins_autodeploy_code/project_code"
+                //sh "ls -l /k8s-data/jenkins_autodeploy_code/project_code/${env.PROJECT_NAME}"
+		//sh "cp ${env.tarfilename_project} /k8s-data/jenkins_autodeploy_code/backup/"
+		//sh "tar zxvf ${env.tarfilename_project} -C /k8s-data/jenkins_autodeploy_code/project_code/${env.PROJECT_NAME}"
+		//sh "ls -l /k8s-data/jenkins_autodeploy_code/project_code/${env.PROJECT_NAME}"
+
+		//sh "test -d /k8s-data/jenkins_autodeploy_code/${env.PROJECT_NAME} && cd /k8s-data/jenkins_autodeploy_code/${env.PROJECT_NAME};git pull origin master"
+
+	} 
+}
+
+@NonCPS
+def rm_images_none_list() {
+       	sh 'touch images_none_list'
+       	sh 'docker images | grep "<none>" | awk "{print \\$3}" >images_none_list'
+	sh 'cat images_none_list'
+	sh 'cat images_none_list | while read line; do docker rmi -f \$line; done'
+       	sh 'rm -f images_none_list'
+
+	echo "rm_images_none_list exec ok!"
+}
+
+def rm_docker_pod_exited_list(){
+	sh 'touch docker_pod_exited_list'
+	sh 'docker ps --all -q -f status=exited > docker_pod_exited_list'
+	sh 'cat docker_pod_exited_list'
+	sh 'cat docker_pod_exited_list | while read line; do docker rm -f \$line; done'
+	sh 'rm -f docker_pod_exited_list'
+	echo "rm_docker_pod_exited_list exec ok!"
+}
+

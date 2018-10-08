@@ -1,0 +1,11 @@
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: PROJECT-NAME-NAMESPACE-code-claim 
+spec:
+  volumeName: PROJECT-NAME-NAMESPACE-code-pv
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 20Gi
